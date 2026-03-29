@@ -15,6 +15,7 @@ export default function ManagePage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -116,6 +117,10 @@ export default function ManagePage() {
     return acc;
   }, {});
 
+  const filteredEntries = search.trim()
+    ? entries.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()))
+    : entries;
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <header className="bg-gray-900 border-b border-gray-800 px-4 py-4">
@@ -182,6 +187,20 @@ export default function ManagePage() {
           </div>
         </div>
 
+        {/* 名前検索 */}
+        <div className="mb-3 flex items-center gap-3">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="名前で検索..."
+            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-400 w-56"
+          />
+          {search && (
+            <span className="text-gray-400 text-sm">{filteredEntries.length}件表示</span>
+          )}
+        </div>
+
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead className="border-b border-gray-800">
@@ -190,6 +209,7 @@ export default function ManagePage() {
                 <th className="px-4 py-3">名前</th>
                 <th className="px-4 py-3">ジャンル</th>
                 <th className="px-4 py-3">Instagram</th>
+                <th className="px-4 py-3 max-w-[180px]">コメント</th>
                 <th className="px-4 py-3">エントリー日時</th>
                 <th className="px-4 py-3 w-16"></th>
               </tr>
@@ -197,12 +217,18 @@ export default function ManagePage() {
             <tbody>
               {entries.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center text-gray-500 py-12">
+                  <td colSpan={7} className="text-center text-gray-500 py-12">
                     まだエントリーがありません
                   </td>
                 </tr>
+              ) : filteredEntries.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center text-gray-500 py-12">
+                    「{search}」に一致するエントリーがありません
+                  </td>
+                </tr>
               ) : (
-                entries.map((entry, i) => (
+                filteredEntries.map((entry, i) => (
                   <tr key={entry.id} className="border-b border-gray-800 hover:bg-gray-800/50">
                     <td className="px-4 py-3 text-gray-500">{i + 1}</td>
                     <td className="px-4 py-3 font-medium">{entry.name}</td>
@@ -210,6 +236,18 @@ export default function ManagePage() {
                       <span className="bg-gray-700 text-xs px-2 py-0.5 rounded">{entry.genre}</span>
                     </td>
                     <td className="px-4 py-3 text-gray-400">{entry.instagramHandle || '—'}</td>
+                    <td className="px-4 py-3 text-gray-400 max-w-[180px]">
+                      {entry.comment ? (
+                        <span
+                          className="block truncate cursor-help text-xs"
+                          title={entry.comment}
+                        >
+                          {entry.comment}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-400 text-xs">
                       {new Date(entry.createdAt).toLocaleString('ja-JP')}
                     </td>

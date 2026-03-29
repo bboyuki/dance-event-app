@@ -40,6 +40,18 @@ export async function saveEvent(event: Omit<Event, 'id' | 'createdAt'>): Promise
   return toEvent(data);
 }
 
+export async function getMyEvents(): Promise<Event[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('date', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(toEvent);
+}
+
 export async function getEntries(eventId: string): Promise<Entry[]> {
   const { data, error } = await supabase
     .from('entries')

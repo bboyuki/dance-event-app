@@ -111,6 +111,8 @@ export default function EventDetail() {
     );
   }
 
+  const today = new Date().toLocaleDateString('sv-SE');
+  const isPast = event.date < today;
   const isFull = entries.length >= event.capacity;
 
   return (
@@ -131,6 +133,9 @@ export default function EventDetail() {
           )}
           <div className="p-6">
             <div className="flex flex-wrap gap-2 mb-3">
+              {isPast && (
+                <span className="bg-gray-700 text-gray-400 text-xs font-bold px-2 py-0.5 rounded">開催済み</span>
+              )}
               <span className="bg-yellow-400 text-gray-950 text-xs font-bold px-2 py-0.5 rounded">
                 {event.category}
               </span>
@@ -174,7 +179,9 @@ export default function EventDetail() {
             <p className="text-gray-300 text-sm leading-relaxed mb-6">{event.description}</p>
 
             <div className="flex gap-3">
-              {!submitted && !isFull ? (
+              {isPast ? (
+                <span className="bg-gray-700 text-gray-400 font-bold px-6 py-2 rounded-lg">開催終了</span>
+              ) : !submitted && !isFull ? (
                 <button
                   onClick={() => setShowForm(!showForm)}
                   className="bg-yellow-400 text-gray-950 font-bold px-6 py-2 rounded-lg hover:bg-yellow-300 transition"
