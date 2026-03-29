@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Genre, EventCategory } from '@/lib/types';
 import { saveEvent } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 
 const GENRES: Genre[] = ['Breaking', 'Hip Hop', 'Locking', 'Popping', 'House', 'Waacking', 'その他'];
 const CATEGORIES: EventCategory[] = ['バトル', 'コンテスト', 'ワークショップ', 'その他'];
@@ -20,6 +21,18 @@ const PREFECTURES = [
 
 export default function NewEvent() {
   const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        router.replace('/auth?redirectTo=/events/new');
+      } else {
+        setAuthChecked(true);
+      }
+    });
+  }, [router]);
+
   const [form, setForm] = useState({
     title: '',
     date: '',
@@ -36,9 +49,29 @@ export default function NewEvent() {
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <p className="text-gray-400">確認中...</p>
+      </div>
+    );
+  }
+
+  const IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > IMAGE_MAX_BYTES) {
+      alert('画像は5MB以下にしてください');
+      e.target.value = '';
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      alert('画像ファイルを選択してください（JPG / PNG / WEBP）');
+      e.target.value = '';
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => setImageBase64(reader.result as string);
     reader.readAsDataURL(file);
@@ -94,6 +127,7 @@ export default function NewEvent() {
             <label className="block text-sm text-gray-400 mb-1">イベント名 *</label>
             <input
               required
+              maxLength={100}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
@@ -107,6 +141,7 @@ export default function NewEvent() {
               <input
                 required
                 type="date"
+                min={new Date().toISOString().split('T')[0]}
                 value={form.date}
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
@@ -143,6 +178,7 @@ export default function NewEvent() {
               <label className="block text-sm text-gray-400 mb-1">会場名 *</label>
               <input
                 required
+                maxLength={100}
                 value={form.location}
                 onChange={(e) => setForm({ ...form, location: e.target.value })}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
@@ -197,6 +233,7 @@ export default function NewEvent() {
               required
               type="number"
               min="1"
+              max="10000"
               value={form.capacity}
               onChange={(e) => setForm({ ...form, capacity: e.target.value })}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
@@ -231,12 +268,14 @@ export default function NewEvent() {
           <div>
             <label className="block text-sm text-gray-400 mb-1">イベント説明</label>
             <textarea
+              maxLength={2000}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
               rows={4}
               placeholder="イベントの詳細や注意事項など"
             />
+            <p className="text-xs text-gray-600 mt-1 text-right">{form.description.length} / 2000</p>
           </div>
 
           <div className="border-t border-gray-800 pt-5">
@@ -246,6 +285,7 @@ export default function NewEvent() {
                 <label className="block text-sm text-gray-400 mb-1">主催者名 *</label>
                 <input
                   required
+                  maxLength={100}
                   value={form.organizerName}
                   onChange={(e) => setForm({ ...form, organizerName: e.target.value })}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
@@ -256,6 +296,7 @@ export default function NewEvent() {
                 <label className="block text-sm text-gray-400 mb-1">連絡先（メール or Instagram）*</label>
                 <input
                   required
+                  maxLength={200}
                   value={form.organizerContact}
                   onChange={(e) => setForm({ ...form, organizerContact: e.target.value })}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"

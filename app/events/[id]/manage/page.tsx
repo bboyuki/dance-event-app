@@ -1,28 +1,57 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Event, Entry } from '@/lib/types';
 import { getEvents, getEntries, deleteEntry } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 
 export default function ManagePage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [event, setEvent] = useState<Event | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
 
   useEffect(() => {
-    Promise.all([getEvents(), getEntries(id)]).then(([events, entries]) => {
-      setEvent(events.find((e) => e.id === id) ?? null);
-      setEntries(entries);
-    }).finally(() => setLoading(false));
-  }, [id]);
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace(`/auth?redirectTo=/events/${id}/manage`);
+        return;
+      }
+      const [events, fetchedEntries] = await Promise.all([getEvents(), getEntries(id)]);
+      const foundEvent = events.find((e) => e.id === id) ?? null;
+
+      // オーナーチェック: userId が null のレガシーイベントも含め、不一致は全て拒否
+      if (!foundEvent?.userId || foundEvent.userId !== user.id) {
+        setAuthError('このイベントの管理権限がありません。');
+        setLoading(false);
+        return;
+      }
+
+      setEvent(foundEvent);
+      setEntries(fetchedEntries);
+      setLoading(false);
+    }
+    load();
+  }, [id, router]);
 
   async function handleDelete(entryId: string) {
     if (!confirm('このエントリーを削除しますか？')) return;
     await deleteEntry(entryId);
     setEntries(await getEntries(id));
+  }
+
+  function sanitizeCsvCell(value: string | number): string {
+    const str = String(value ?? '');
+    // Excel数式インジェクション対策: =, +, -, @ で始まる値はシングルクォートでエスケープ
+    if (/^[=+\-@\t\r]/.test(str)) {
+      return `'${str.replace(/"/g, '""')}`;
+    }
+    return str.replace(/"/g, '""');
   }
 
   function handleExportCSV() {
@@ -35,12 +64,15 @@ export default function ManagePage() {
       e.comment,
       new Date(e.createdAt).toLocaleString('ja-JP'),
     ]);
-    const csv = [header, ...rows].map((r) => r.map((v) => `"${v}"`).join(',')).join('\n');
+    const csv = [header, ...rows]
+      .map((r) => r.map((v) => `"${sanitizeCsvCell(v)}"`).join(','))
+      .join('\n');
+    const safeTitle = (event?.title ?? 'entries').replace(/[\\/:*?"<>|]/g, '_');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${event?.title ?? 'entries'}_エントリー一覧.csv`;
+    a.download = `${safeTitle}_エントリー一覧.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -49,6 +81,17 @@ export default function ManagePage() {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
         <p className="text-gray-400">読み込み中...</p>
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-4">
+        <p className="text-red-400 font-medium">{authError}</p>
+        <Link href={`/events/${id}`} className="text-gray-400 text-sm hover:text-white underline">
+          ← イベント詳細に戻る
+        </Link>
       </div>
     );
   }

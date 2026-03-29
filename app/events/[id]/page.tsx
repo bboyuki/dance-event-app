@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Event, Entry } from '@/lib/types';
 import { getEvents, getEntries, saveEntry } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 
 type Genre = 'Breaking' | 'Hip Hop' | 'Locking' | 'Popping' | 'House' | 'Waacking' | 'その他';
 const GENRES: Genre[] = ['Breaking', 'Hip Hop', 'Locking', 'Popping', 'House', 'Waacking', 'その他'];
@@ -18,8 +19,12 @@ export default function EventDetail() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserId(user?.id ?? null);
+    });
     Promise.all([getEvents(), getEntries(id)]).then(([events, entries]) => {
       setEvent(events.find((e) => e.id === id) ?? null);
       setEntries(entries);
@@ -129,12 +134,14 @@ export default function EventDetail() {
               ) : (
                 <span className="bg-green-900 text-green-300 font-bold px-6 py-2 rounded-lg">エントリー済み</span>
               )}
-              <Link
-                href={`/events/${id}/manage`}
-                className="border border-gray-600 text-gray-300 text-sm px-4 py-2 rounded-lg hover:border-gray-400 transition"
-              >
-                主催者管理
-              </Link>
+              {currentUserId && event.userId === currentUserId && (
+                <Link
+                  href={`/events/${id}/manage`}
+                  className="border border-gray-600 text-gray-300 text-sm px-4 py-2 rounded-lg hover:border-gray-400 transition"
+                >
+                  主催者管理
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -147,6 +154,7 @@ export default function EventDetail() {
                 <label className="block text-sm text-gray-400 mb-1">名前 / ダンサー名 *</label>
                 <input
                   required
+                  maxLength={100}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-400"
@@ -170,6 +178,9 @@ export default function EventDetail() {
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Instagram ID</label>
                 <input
+                  maxLength={30}
+                  pattern="^@?[a-zA-Z0-9][a-zA-Z0-9_.]*$"
+                  title="例: @username（英数字・_・.のみ、1〜30文字）"
                   value={form.instagramHandle}
                   onChange={(e) => setForm({ ...form, instagramHandle: e.target.value })}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-400"
@@ -179,6 +190,7 @@ export default function EventDetail() {
               <div>
                 <label className="block text-sm text-gray-400 mb-1">コメント</label>
                 <textarea
+                  maxLength={500}
                   value={form.comment}
                   onChange={(e) => setForm({ ...form, comment: e.target.value })}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-400"
