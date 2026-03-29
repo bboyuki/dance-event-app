@@ -1,64 +1,136 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Event } from '@/lib/types';
+import { getEvents } from '@/lib/store';
 
 export default function Home() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState({ prefecture: '', genre: '', category: '' });
+
+  useEffect(() => {
+    getEvents().then(setEvents).finally(() => setLoading(false));
+  }, []);
+
+  const filtered = events.filter((e) => {
+    if (filter.prefecture && e.prefecture !== filter.prefecture) return false;
+    if (filter.genre && !e.genre.includes(filter.genre as never)) return false;
+    if (filter.category && e.category !== filter.category) return false;
+    return true;
+  });
+
+  const prefectures = [...new Set(events.map((e) => e.prefecture))];
+  const genres = ['Breaking', 'Hip Hop', 'Locking', 'Popping', 'House', 'Waacking', 'その他'];
+  const categories = ['バトル', 'コンテスト', 'ワークショップ', 'その他'];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-gray-950 text-white">
+      <header className="bg-gray-900 border-b border-gray-800 px-4 py-4">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight">
+            <span className="text-yellow-400">DANCE</span> EVENTS
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/events/new"
+            className="bg-yellow-400 text-gray-950 text-sm font-bold px-4 py-2 rounded-lg hover:bg-yellow-300 transition"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            + イベントを登録
+          </Link>
         </div>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4 py-8">
+        <div className="flex flex-wrap gap-3 mb-8">
+          <select
+            value={filter.prefecture}
+            onChange={(e) => setFilter({ ...filter, prefecture: e.target.value })}
+            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="">都道府県：すべて</option>
+            {prefectures.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+          <select
+            value={filter.genre}
+            onChange={(e) => setFilter({ ...filter, genre: e.target.value })}
+            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="">ジャンル：すべて</option>
+            {genres.map((g) => (
+              <option key={g} value={g}>{g}</option>
+            ))}
+          </select>
+          <select
+            value={filter.category}
+            onChange={(e) => setFilter({ ...filter, category: e.target.value })}
+            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="">カテゴリー：すべて</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          {(filter.prefecture || filter.genre || filter.category) && (
+            <button
+              onClick={() => setFilter({ prefecture: '', genre: '', category: '' })}
+              className="text-sm text-gray-400 hover:text-white underline"
+            >
+              クリア
+            </button>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="text-center text-gray-500 py-20">読み込み中...</div>
+        ) : (
+          <>
+            <p className="text-gray-400 text-sm mb-4">{filtered.length}件のイベント</p>
+            <div className="grid gap-4">
+              {filtered.length === 0 ? (
+                <div className="text-center text-gray-500 py-20">
+                  イベントが見つかりませんでした
+                </div>
+              ) : (
+                filtered.map((event) => (
+                  <Link key={event.id} href={`/events/${event.id}`}>
+                    <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-yellow-400 transition cursor-pointer">
+                      {event.imageBase64 && (
+                        <img src={event.imageBase64} alt={event.title} className="w-full h-40 object-cover" />
+                      )}
+                      <div className="p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              <span className="bg-yellow-400 text-gray-950 text-xs font-bold px-2 py-0.5 rounded">
+                                {event.category}
+                              </span>
+                              {event.genre.map((g) => (
+                                <span key={g} className="bg-gray-700 text-gray-200 text-xs px-2 py-0.5 rounded">
+                                  {g}
+                                </span>
+                              ))}
+                            </div>
+                            <h2 className="text-lg font-bold mb-1">{event.title}</h2>
+                            <p className="text-gray-400 text-sm">{event.description}</p>
+                          </div>
+                          <div className="text-right text-sm shrink-0">
+                            <p className="text-yellow-400 font-bold">{event.date}</p>
+                            <p className="text-gray-400">{event.time}〜</p>
+                            <p className="text-gray-300 mt-1">{event.prefecture}</p>
+                            <p className="text-gray-400 text-xs">{event.location}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
