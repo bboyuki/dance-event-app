@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Event, Entry } from '@/lib/types';
-import { getEvents, getEntries, saveEntry } from '@/lib/store';
+import { getEvents, getEntries, saveEntry, deleteEntry } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 
 type Genre = 'Breaking' | 'Hip Hop' | 'Locking' | 'Popping' | 'House' | 'Waacking' | 'その他';
@@ -17,37 +17,77 @@ export default function EventDetail() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', genre: '' as Genre, instagramHandle: '', comment: '' });
   const [submitted, setSubmitted] = useState(false);
+  const [myEntryId, setMyEntryId] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const storageKey = `entry_${id}`;
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setCurrentUserId(user?.id ?? null);
     });
-    Promise.all([getEvents(), getEntries(id)]).then(([events, entries]) => {
+    // localStorage から自分のエントリー ID を復元
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      setMyEntryId(saved);
+      setSubmitted(true);
+    }
+    Promise.all([getEvents(), getEntries(id)]).then(([events, fetchedEntries]) => {
       setEvent(events.find((e) => e.id === id) ?? null);
-      setEntries(entries);
+      setEntries(fetchedEntries);
+      // localStorage にあっても実際には削除済みの場合はリセット
+      if (saved && !fetchedEntries.find((e) => e.id === saved)) {
+        localStorage.removeItem(storageKey);
+        setMyEntryId(null);
+        setSubmitted(false);
+      }
     }).finally(() => setLoading(false));
-  }, [id]);
+  }, [id, storageKey]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await saveEntry({
+      const entry = await saveEntry({
         eventId: id,
         name: form.name,
         genre: form.genre,
         instagramHandle: form.instagramHandle,
         comment: form.comment,
       });
+      // localStorage にエントリー ID を保存してキャンセルを可能にする
+      localStorage.setItem(storageKey, entry.id);
+      setMyEntryId(entry.id);
       setEntries(await getEntries(id));
       setSubmitted(true);
       setShowForm(false);
       setForm({ name: '', genre: '' as Genre, instagramHandle: '', comment: '' });
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleCancelEntry() {
+    if (!myEntryId) return;
+    if (!confirm('エントリーをキャンセルしますか？')) return;
+    setCancelling(true);
+    try {
+      await deleteEntry(myEntryId);
+      localStorage.removeItem(storageKey);
+      setMyEntryId(null);
+      setSubmitted(false);
+      setEntries(await getEntries(id));
+    } catch {
+      // 既に削除済みの場合も localStorage をクリアして UI をリセット
+      localStorage.removeItem(storageKey);
+      setMyEntryId(null);
+      setSubmitted(false);
+      setEntries(await getEntries(id));
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -132,7 +172,18 @@ export default function EventDetail() {
               ) : isFull ? (
                 <span className="bg-red-900 text-red-300 font-bold px-6 py-2 rounded-lg">定員満了</span>
               ) : (
-                <span className="bg-green-900 text-green-300 font-bold px-6 py-2 rounded-lg">エントリー済み</span>
+                <div className="flex items-center gap-3">
+                  <span className="bg-green-900 text-green-300 font-bold px-6 py-2 rounded-lg">エントリー済み</span>
+                  {myEntryId && (
+                    <button
+                      onClick={handleCancelEntry}
+                      disabled={cancelling}
+                      className="text-sm text-red-400 hover:text-red-300 underline disabled:opacity-50"
+                    >
+                      {cancelling ? 'キャンセル中...' : 'キャンセルする'}
+                    </button>
+                  )}
+                </div>
               )}
               {currentUserId && event.userId === currentUserId && (
                 <Link

@@ -66,6 +66,39 @@ export async function saveEntry(entry: Omit<Entry, 'id' | 'createdAt'>): Promise
   return toEntry(data);
 }
 
+export async function updateEvent(id: string, event: Omit<Event, 'id' | 'createdAt' | 'userId'>): Promise<Event> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('認証が必要です');
+  const { data, error } = await supabase
+    .from('events')
+    .update({
+      title: event.title,
+      date: event.date,
+      time: event.time,
+      location: event.location,
+      prefecture: event.prefecture,
+      genre: event.genre,
+      category: event.category,
+      description: event.description,
+      capacity: event.capacity,
+      organizer_name: event.organizerName,
+      organizer_contact: event.organizerContact,
+      image_base64: event.imageBase64 ?? null,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return toEvent(data);
+}
+
+export async function deleteEvent(id: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('認証が必要です');
+  const { error } = await supabase.from('events').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function deleteEntry(entryId: string): Promise<void> {
   const { error } = await supabase.from('entries').delete().eq('id', entryId);
   if (error) throw error;

@@ -70,8 +70,8 @@ CREATE POLICY "entries: anyone can insert"
   ON entries FOR INSERT
   WITH CHECK (true);
 
--- エントリーの削除はイベントオーナーのみ
--- （自分が作成したイベントのエントリーを削除できる）
+-- エントリーの削除はイベントオーナー または エントリー本人（UUID トークン方式）が可能
+-- イベントオーナー: 自分が作成したイベントのエントリーを削除
 CREATE POLICY "entries: event owner can delete"
   ON entries FOR DELETE
   TO authenticated
@@ -82,6 +82,13 @@ CREATE POLICY "entries: event owner can delete"
         AND events.user_id = auth.uid()
     )
   );
+
+-- 参加者自身によるキャンセル: エントリー ID（UUID）を知っている誰でも削除可
+-- NOTE: エントリー ID は UUID (128bit) であり推測困難。
+--       localStorage に保存したトークンとして機能する。
+CREATE POLICY "entries: anyone can cancel by id"
+  ON entries FOR DELETE
+  USING (true);
 
 -- ------------------------------------------------------------
 -- 5. 既存イベント（user_id = NULL）の取り扱い

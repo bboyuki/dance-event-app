@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+
 import { Event, Entry } from '@/lib/types';
-import { getEvents, getEntries, deleteEntry } from '@/lib/store';
+import { getEvents, getEntries, deleteEntry, deleteEvent } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 
 export default function ManagePage() {
@@ -39,10 +40,16 @@ export default function ManagePage() {
     load();
   }, [id, router]);
 
-  async function handleDelete(entryId: string) {
+  async function handleDeleteEntry(entryId: string) {
     if (!confirm('このエントリーを削除しますか？')) return;
     await deleteEntry(entryId);
     setEntries(await getEntries(id));
+  }
+
+  async function handleDeleteEvent() {
+    if (!confirm(`「${event?.title}」を削除しますか？\nこの操作は取り消せません。エントリーも全て削除されます。`)) return;
+    await deleteEvent(id);
+    router.replace('/');
   }
 
   function sanitizeCsvCell(value: string | number): string {
@@ -128,12 +135,26 @@ export default function ManagePage() {
             <h2 className="text-2xl font-bold">{event.title}</h2>
             <p className="text-gray-400 text-sm mt-1">{event.date} {event.time}〜 / {event.location}</p>
           </div>
-          <button
-            onClick={handleExportCSV}
-            className="bg-gray-700 hover:bg-gray-600 text-sm px-4 py-2 rounded-lg transition"
-          >
-            CSVダウンロード
-          </button>
+          <div className="flex gap-2 flex-wrap justify-end">
+            <Link
+              href={`/events/${id}/edit`}
+              className="bg-gray-700 hover:bg-gray-600 text-sm px-4 py-2 rounded-lg transition"
+            >
+              イベントを編集
+            </Link>
+            <button
+              onClick={handleExportCSV}
+              className="bg-gray-700 hover:bg-gray-600 text-sm px-4 py-2 rounded-lg transition"
+            >
+              CSVダウンロード
+            </button>
+            <button
+              onClick={handleDeleteEvent}
+              className="bg-red-900 hover:bg-red-800 text-red-300 text-sm px-4 py-2 rounded-lg transition"
+            >
+              イベントを削除
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
@@ -194,7 +215,7 @@ export default function ManagePage() {
                     </td>
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => handleDelete(entry.id)}
+                        onClick={() => handleDeleteEntry(entry.id)}
                         className="text-red-500 hover:text-red-400 text-xs"
                       >
                         削除
