@@ -8,16 +8,24 @@ import { getEvents } from '@/lib/store';
 export default function Home() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState({ prefecture: '', genre: '', category: '' });
+  const [filter, setFilter] = useState({ prefecture: '', genre: '', category: '', period: '' });
 
   useEffect(() => {
     getEvents().then(setEvents).finally(() => setLoading(false));
   }, []);
 
+  const today = new Date().toLocaleDateString('sv-SE');
+  const weekLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('sv-SE');
+  const monthEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
+    .toLocaleDateString('sv-SE');
+
   const filtered = events.filter((e) => {
     if (filter.prefecture && e.prefecture !== filter.prefecture) return false;
     if (filter.genre && !e.genre.includes(filter.genre as never)) return false;
     if (filter.category && e.category !== filter.category) return false;
+    if (filter.period === 'week' && !(e.date >= today && e.date <= weekLater)) return false;
+    if (filter.period === 'month' && !(e.date >= today && e.date <= monthEnd)) return false;
+    if (filter.period === 'future' && e.date < today) return false;
     return true;
   });
 
@@ -42,45 +50,69 @@ export default function Home() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
-        <div className="flex flex-wrap gap-3 mb-8">
-          <select
-            value={filter.prefecture}
-            onChange={(e) => setFilter({ ...filter, prefecture: e.target.value })}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">都道府県：すべて</option>
-            {prefectures.map((p) => (
-              <option key={p} value={p}>{p}</option>
+        <div className="space-y-3 mb-8">
+          {/* 期間クイックフィルター */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: '', label: 'すべての期間' },
+              { value: 'week', label: '今週' },
+              { value: 'month', label: '今月' },
+              { value: 'future', label: '今日以降' },
+            ].map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setFilter({ ...filter, period: value })}
+                className={`px-3 py-1.5 rounded-full text-sm transition ${
+                  filter.period === value
+                    ? 'bg-yellow-400 text-gray-950 font-bold'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                }`}
+              >
+                {label}
+              </button>
             ))}
-          </select>
-          <select
-            value={filter.genre}
-            onChange={(e) => setFilter({ ...filter, genre: e.target.value })}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">ジャンル：すべて</option>
-            {genres.map((g) => (
-              <option key={g} value={g}>{g}</option>
-            ))}
-          </select>
-          <select
-            value={filter.category}
-            onChange={(e) => setFilter({ ...filter, category: e.target.value })}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">カテゴリー：すべて</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          {(filter.prefecture || filter.genre || filter.category) && (
-            <button
-              onClick={() => setFilter({ prefecture: '', genre: '', category: '' })}
-              className="text-sm text-gray-400 hover:text-white underline"
+          </div>
+          {/* 属性フィルター */}
+          <div className="flex flex-wrap gap-3">
+            <select
+              value={filter.prefecture}
+              onChange={(e) => setFilter({ ...filter, prefecture: e.target.value })}
+              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
             >
-              クリア
-            </button>
-          )}
+              <option value="">都道府県：すべて</option>
+              {prefectures.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+            <select
+              value={filter.genre}
+              onChange={(e) => setFilter({ ...filter, genre: e.target.value })}
+              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">ジャンル：すべて</option>
+              {genres.map((g) => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+            <select
+              value={filter.category}
+              onChange={(e) => setFilter({ ...filter, category: e.target.value })}
+              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">カテゴリー：すべて</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            {(filter.prefecture || filter.genre || filter.category || filter.period) && (
+              <button
+                onClick={() => setFilter({ prefecture: '', genre: '', category: '', period: '' })}
+                className="text-sm text-gray-400 hover:text-white underline"
+              >
+                すべてクリア
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (

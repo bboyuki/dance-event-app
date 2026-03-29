@@ -17,6 +17,7 @@ export default function EventDetail() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', genre: '' as Genre, instagramHandle: '', comment: '' });
   const [submitted, setSubmitted] = useState(false);
+  const [confirmedEntry, setConfirmedEntry] = useState<{ name: string; genre: string } | null>(null);
   const [myEntryId, setMyEntryId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -61,6 +62,7 @@ export default function EventDetail() {
       // localStorage にエントリー ID を保存してキャンセルを可能にする
       localStorage.setItem(storageKey, entry.id);
       setMyEntryId(entry.id);
+      setConfirmedEntry({ name: form.name, genre: form.genre });
       setEntries(await getEntries(id));
       setSubmitted(true);
       setShowForm(false);
@@ -79,12 +81,14 @@ export default function EventDetail() {
       localStorage.removeItem(storageKey);
       setMyEntryId(null);
       setSubmitted(false);
+      setConfirmedEntry(null);
       setEntries(await getEntries(id));
     } catch {
       // 既に削除済みの場合も localStorage をクリアして UI をリセット
       localStorage.removeItem(storageKey);
       setMyEntryId(null);
       setSubmitted(false);
+      setConfirmedEntry(null);
       setEntries(await getEntries(id));
     } finally {
       setCancelling(false);
@@ -157,6 +161,14 @@ export default function EventDetail() {
                   {entries.length} / {event.capacity}
                 </p>
               </div>
+              <div>
+                <p className="text-gray-400 mb-1">主催者</p>
+                <p className="font-medium">{event.organizerName}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 mb-1">連絡先</p>
+                <p className="font-medium break-all text-yellow-300">{event.organizerContact}</p>
+              </div>
             </div>
 
             <p className="text-gray-300 text-sm leading-relaxed mb-6">{event.description}</p>
@@ -196,6 +208,25 @@ export default function EventDetail() {
             </div>
           </div>
         </div>
+
+        {/* エントリー完了確認パネル */}
+        {confirmedEntry && (
+          <div className="bg-green-900/40 border border-green-600 rounded-xl p-5 mb-6">
+            <div className="flex items-start gap-3">
+              <span className="text-green-400 text-xl mt-0.5">✓</span>
+              <div className="flex-1">
+                <p className="font-bold text-green-300 mb-1">エントリーが完了しました！</p>
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">{confirmedEntry.name}</span>
+                  {' '}さん（{confirmedEntry.genre}）のエントリーを受け付けました。
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  同じデバイス・ブラウザでこのページに戻るとキャンセルができます。
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showForm && (
           <div className="bg-gray-900 border border-yellow-400 rounded-xl p-6 mb-6">
