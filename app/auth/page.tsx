@@ -1,18 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
 function getSafeRedirectTo(raw: string | null): string {
   if (!raw) return '/';
-  // パス形式のみ許可（外部URLは /にフォールバック）
   if (raw.startsWith('/') && !raw.startsWith('//')) return raw;
   return '/';
 }
 
-export default function AuthPage() {
+function AuthForm() {
   const searchParams = useSearchParams();
   const redirectTo = getSafeRedirectTo(searchParams.get('redirectTo'));
   const [email, setEmail] = useState('');
@@ -102,5 +101,17 @@ export default function AuthPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <p className="text-gray-400">読み込み中...</p>
+      </div>
+    }>
+      <AuthForm />
+    </Suspense>
   );
 }
