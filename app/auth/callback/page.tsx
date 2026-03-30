@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
@@ -8,7 +8,6 @@ function getSafeRedirectTo(raw: string | null): string {
   if (!raw) return '/';
   try {
     const parsed = new URL(raw, window.location.origin);
-    // 同一オリジンのみ許可
     if (parsed.origin !== window.location.origin) return '/';
     return parsed.pathname + parsed.search;
   } catch {
@@ -16,7 +15,7 @@ function getSafeRedirectTo(raw: string | null): string {
   }
 }
 
-export default function AuthCallbackPage() {
+function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -30,12 +29,10 @@ export default function AuthCallbackPage() {
       router.replace(redirectTo);
     }
 
-    // supabase-js (implicit flow) が URL ハッシュからセッションを自動取得する
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') doRedirect();
     });
 
-    // すでにセッションがある場合もリダイレクト
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) doRedirect();
     });
@@ -49,5 +46,17 @@ export default function AuthCallbackPage() {
         <div className="text-gray-400 text-sm">ログイン処理中...</div>
       </div>
     </div>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="text-gray-400 text-sm">ログイン処理中...</div>
+      </div>
+    }>
+      <CallbackContent />
+    </Suspense>
   );
 }
