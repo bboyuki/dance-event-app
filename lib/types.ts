@@ -25,6 +25,7 @@ export interface Entry {
   eventId: string;
   name: string;
   genre: Genre;
+  email: string;
   instagramHandle: string;
   comment: string;
   createdAt: string;

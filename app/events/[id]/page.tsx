@@ -15,7 +15,7 @@ export default function EventDetail() {
   const [event, setEvent] = useState<Event | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', genre: '' as Genre, instagramHandle: '', comment: '' });
+  const [form, setForm] = useState({ name: '', genre: '' as Genre, email: '', instagramHandle: '', comment: '' });
   const [submitted, setSubmitted] = useState(false);
   const [confirmedEntry, setConfirmedEntry] = useState<{ name: string; genre: string } | null>(null);
   const [myEntryId, setMyEntryId] = useState<string | null>(null);
@@ -56,6 +56,7 @@ export default function EventDetail() {
         eventId: id,
         name: form.name,
         genre: form.genre,
+        email: form.email,
         instagramHandle: form.instagramHandle,
         comment: form.comment,
       });
@@ -66,7 +67,7 @@ export default function EventDetail() {
       setEntries(await getEntries(id));
       setSubmitted(true);
       setShowForm(false);
-      setForm({ name: '', genre: '' as Genre, instagramHandle: '', comment: '' });
+      setForm({ name: '', genre: '' as Genre, email: '', instagramHandle: '', comment: '' });
     } finally {
       setSubmitting(false);
     }
@@ -265,6 +266,19 @@ export default function EventDetail() {
                 </select>
               </div>
               <div>
+                <label className="block text-sm text-gray-400 mb-1">メールアドレス *</label>
+                <input
+                  required
+                  type="email"
+                  maxLength={254}
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-400"
+                  placeholder="you@example.com"
+                />
+                <p className="text-gray-600 text-xs mt-1">主催者からの連絡に使用します。公開はされません。</p>
+              </div>
+              <div>
                 <label className="block text-sm text-gray-400 mb-1">Instagram ID</label>
                 <input
                   maxLength={30}
@@ -273,7 +287,7 @@ export default function EventDetail() {
                   value={form.instagramHandle}
                   onChange={(e) => setForm({ ...form, instagramHandle: e.target.value })}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-400"
-                  placeholder="@username"
+                  placeholder="@username（任意）"
                 />
               </div>
               <div>

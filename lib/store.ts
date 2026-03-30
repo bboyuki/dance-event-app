@@ -69,6 +69,7 @@ export async function saveEntry(entry: Omit<Entry, 'id' | 'createdAt'>): Promise
       event_id: entry.eventId,
       name: entry.name,
       genre: entry.genre,
+      email: entry.email,
       instagram_handle: entry.instagramHandle,
       comment: entry.comment,
     })
@@ -143,6 +144,7 @@ function toEntry(row: Record<string, unknown>): Entry {
     eventId: row.event_id as string,
     name: row.name as string,
     genre: row.genre as Entry['genre'],
+    email: row.email as string,
     instagramHandle: row.instagram_handle as string,
     comment: row.comment as string,
     createdAt: row.created_at as string,

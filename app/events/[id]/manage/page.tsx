@@ -63,11 +63,12 @@ export default function ManagePage() {
   }
 
   function handleExportCSV() {
-    const header = ['No', '名前', 'ジャンル', 'Instagram', 'コメント', 'エントリー日時'];
+    const header = ['No', '名前', 'ジャンル', 'メールアドレス', 'Instagram', 'コメント', 'エントリー日時'];
     const rows = entries.map((e, i) => [
       i + 1,
       e.name,
       e.genre,
+      e.email,
       e.instagramHandle,
       e.comment,
       new Date(e.createdAt).toLocaleString('ja-JP'),
@@ -208,6 +209,7 @@ export default function ManagePage() {
                 <th className="px-4 py-3 w-10">No</th>
                 <th className="px-4 py-3">名前</th>
                 <th className="px-4 py-3">ジャンル</th>
+                <th className="px-4 py-3">メールアドレス</th>
                 <th className="px-4 py-3">Instagram</th>
                 <th className="px-4 py-3 max-w-[180px]">コメント</th>
                 <th className="px-4 py-3">エントリー日時</th>
@@ -235,6 +237,7 @@ export default function ManagePage() {
                     <td className="px-4 py-3">
                       <span className="bg-gray-700 text-xs px-2 py-0.5 rounded">{entry.genre}</span>
                     </td>
+                    <td className="px-4 py-3 text-gray-400 text-xs">{entry.email}</td>
                     <td className="px-4 py-3 text-gray-400">{entry.instagramHandle || '—'}</td>
                     <td className="px-4 py-3 text-gray-400 max-w-[180px]">
                       {entry.comment ? (
