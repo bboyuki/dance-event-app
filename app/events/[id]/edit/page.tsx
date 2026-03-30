@@ -59,7 +59,9 @@ export default function EditEvent() {
         setLoading(false);
         return;
       }
-      if (!event.userId || event.userId !== user.id) {
+      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+      const isAdmin = !!adminEmail && user.email === adminEmail;
+      if (!isAdmin && (!event.userId || event.userId !== user.id)) {
         setAuthError('このイベントを編集する権限がありません。');
         setLoading(false);
         return;

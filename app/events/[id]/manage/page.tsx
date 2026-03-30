@@ -24,11 +24,14 @@ export default function ManagePage() {
         router.replace(`/auth?redirectTo=/events/${id}/manage`);
         return;
       }
+      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+      const isAdmin = !!adminEmail && user.email === adminEmail;
+
       const [events, fetchedEntries] = await Promise.all([getEvents(), getEntries(id)]);
       const foundEvent = events.find((e) => e.id === id) ?? null;
 
-      // オーナーチェック: userId が null のレガシーイベントも含め、不一致は全て拒否
-      if (!foundEvent?.userId || foundEvent.userId !== user.id) {
+      // プラットフォーム管理者はオーナーチェックをバイパス
+      if (!isAdmin && (!foundEvent?.userId || foundEvent.userId !== user.id)) {
         setAuthError('このイベントの管理権限がありません。');
         setLoading(false);
         return;
