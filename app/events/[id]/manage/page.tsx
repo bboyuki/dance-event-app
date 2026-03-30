@@ -1,28 +1,65 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+
 import { Event, Entry } from '@/lib/types';
-import { getEvents, getEntries, deleteEntry } from '@/lib/store';
+import { getEvents, getEntries, deleteEntry, deleteEvent } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 
 export default function ManagePage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [event, setEvent] = useState<Event | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
-    Promise.all([getEvents(), getEntries(id)]).then(([events, entries]) => {
-      setEvent(events.find((e) => e.id === id) ?? null);
-      setEntries(entries);
-    }).finally(() => setLoading(false));
-  }, [id]);
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace(`/auth?redirectTo=/events/${id}/manage`);
+        return;
+      }
+      const [events, fetchedEntries] = await Promise.all([getEvents(), getEntries(id)]);
+      const foundEvent = events.find((e) => e.id === id) ?? null;
 
-  async function handleDelete(entryId: string) {
+      // オーナーチェック: userId が null のレガシーイベントも含め、不一致は全て拒否
+      if (!foundEvent?.userId || foundEvent.userId !== user.id) {
+        setAuthError('このイベントの管理権限がありません。');
+        setLoading(false);
+        return;
+      }
+
+      setEvent(foundEvent);
+      setEntries(fetchedEntries);
+      setLoading(false);
+    }
+    load();
+  }, [id, router]);
+
+  async function handleDeleteEntry(entryId: string) {
     if (!confirm('このエントリーを削除しますか？')) return;
     await deleteEntry(entryId);
     setEntries(await getEntries(id));
+  }
+
+  async function handleDeleteEvent() {
+    if (!confirm(`「${event?.title}」を削除しますか？\nこの操作は取り消せません。エントリーも全て削除されます。`)) return;
+    await deleteEvent(id);
+    router.replace('/');
+  }
+
+  function sanitizeCsvCell(value: string | number): string {
+    const str = String(value ?? '');
+    // Excel数式インジェクション対策: =, +, -, @ で始まる値はシングルクォートでエスケープ
+    if (/^[=+\-@\t\r]/.test(str)) {
+      return `'${str.replace(/"/g, '""')}`;
+    }
+    return str.replace(/"/g, '""');
   }
 
   function handleExportCSV() {
@@ -35,12 +72,15 @@ export default function ManagePage() {
       e.comment,
       new Date(e.createdAt).toLocaleString('ja-JP'),
     ]);
-    const csv = [header, ...rows].map((r) => r.map((v) => `"${v}"`).join(',')).join('\n');
+    const csv = [header, ...rows]
+      .map((r) => r.map((v) => `"${sanitizeCsvCell(v)}"`).join(','))
+      .join('\n');
+    const safeTitle = (event?.title ?? 'entries').replace(/[\\/:*?"<>|]/g, '_');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${event?.title ?? 'entries'}_エントリー一覧.csv`;
+    a.download = `${safeTitle}_エントリー一覧.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -49,6 +89,17 @@ export default function ManagePage() {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
         <p className="text-gray-400">読み込み中...</p>
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-4">
+        <p className="text-red-400 font-medium">{authError}</p>
+        <Link href={`/events/${id}`} className="text-gray-400 text-sm hover:text-white underline">
+          ← イベント詳細に戻る
+        </Link>
       </div>
     );
   }
@@ -65,6 +116,10 @@ export default function ManagePage() {
     acc[e.genre] = (acc[e.genre] ?? 0) + 1;
     return acc;
   }, {});
+
+  const filteredEntries = search.trim()
+    ? entries.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()))
+    : entries;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -85,12 +140,26 @@ export default function ManagePage() {
             <h2 className="text-2xl font-bold">{event.title}</h2>
             <p className="text-gray-400 text-sm mt-1">{event.date} {event.time}〜 / {event.location}</p>
           </div>
-          <button
-            onClick={handleExportCSV}
-            className="bg-gray-700 hover:bg-gray-600 text-sm px-4 py-2 rounded-lg transition"
-          >
-            CSVダウンロード
-          </button>
+          <div className="flex gap-2 flex-wrap justify-end">
+            <Link
+              href={`/events/${id}/edit`}
+              className="bg-gray-700 hover:bg-gray-600 text-sm px-4 py-2 rounded-lg transition"
+            >
+              イベントを編集
+            </Link>
+            <button
+              onClick={handleExportCSV}
+              className="bg-gray-700 hover:bg-gray-600 text-sm px-4 py-2 rounded-lg transition"
+            >
+              CSVダウンロード
+            </button>
+            <button
+              onClick={handleDeleteEvent}
+              className="bg-red-900 hover:bg-red-800 text-red-300 text-sm px-4 py-2 rounded-lg transition"
+            >
+              イベントを削除
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
@@ -118,6 +187,20 @@ export default function ManagePage() {
           </div>
         </div>
 
+        {/* 名前検索 */}
+        <div className="mb-3 flex items-center gap-3">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="名前で検索..."
+            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-400 w-56"
+          />
+          {search && (
+            <span className="text-gray-400 text-sm">{filteredEntries.length}件表示</span>
+          )}
+        </div>
+
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead className="border-b border-gray-800">
@@ -126,6 +209,7 @@ export default function ManagePage() {
                 <th className="px-4 py-3">名前</th>
                 <th className="px-4 py-3">ジャンル</th>
                 <th className="px-4 py-3">Instagram</th>
+                <th className="px-4 py-3 max-w-[180px]">コメント</th>
                 <th className="px-4 py-3">エントリー日時</th>
                 <th className="px-4 py-3 w-16"></th>
               </tr>
@@ -133,12 +217,18 @@ export default function ManagePage() {
             <tbody>
               {entries.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center text-gray-500 py-12">
+                  <td colSpan={7} className="text-center text-gray-500 py-12">
                     まだエントリーがありません
                   </td>
                 </tr>
+              ) : filteredEntries.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center text-gray-500 py-12">
+                    「{search}」に一致するエントリーがありません
+                  </td>
+                </tr>
               ) : (
-                entries.map((entry, i) => (
+                filteredEntries.map((entry, i) => (
                   <tr key={entry.id} className="border-b border-gray-800 hover:bg-gray-800/50">
                     <td className="px-4 py-3 text-gray-500">{i + 1}</td>
                     <td className="px-4 py-3 font-medium">{entry.name}</td>
@@ -146,12 +236,24 @@ export default function ManagePage() {
                       <span className="bg-gray-700 text-xs px-2 py-0.5 rounded">{entry.genre}</span>
                     </td>
                     <td className="px-4 py-3 text-gray-400">{entry.instagramHandle || '—'}</td>
+                    <td className="px-4 py-3 text-gray-400 max-w-[180px]">
+                      {entry.comment ? (
+                        <span
+                          className="block truncate cursor-help text-xs"
+                          title={entry.comment}
+                        >
+                          {entry.comment}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-400 text-xs">
                       {new Date(entry.createdAt).toLocaleString('ja-JP')}
                     </td>
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => handleDelete(entry.id)}
+                        onClick={() => handleDeleteEntry(entry.id)}
                         className="text-red-500 hover:text-red-400 text-xs"
                       >
                         削除

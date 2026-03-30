@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Genre, EventCategory } from '@/lib/types';
-import { saveEvent } from '@/lib/store';
+import { getEvents, getEntries, updateEvent } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 
 const GENRES: Genre[] = ['Breaking', 'Hip Hop', 'Locking', 'Popping', 'House', 'Waacking', 'その他'];
@@ -19,20 +19,16 @@ const PREFECTURES = [
   '熊本','大分','宮崎','鹿児島','沖縄',
 ];
 
-export default function NewEvent() {
+const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+export default function EditEvent() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [authChecked, setAuthChecked] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) {
-        router.replace('/auth?redirectTo=/events/new');
-      } else {
-        setAuthChecked(true);
-      }
-    });
-  }, [router]);
-
+  const [currentEntryCount, setCurrentEntryCount] = useState(0);
   const [form, setForm] = useState({
     title: '',
     date: '',
@@ -47,17 +43,45 @@ export default function NewEvent() {
     organizerContact: '',
   });
   const [imageBase64, setImageBase64] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-        <p className="text-gray-400">確認中...</p>
-      </div>
-    );
-  }
-
-  const IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace(`/auth?redirectTo=/events/${id}/edit`);
+        return;
+      }
+      const [events, entries] = await Promise.all([getEvents(), getEntries(id)]);
+      setCurrentEntryCount(entries.length);
+      const event = events.find((e) => e.id === id);
+      if (!event) {
+        setAuthError('イベントが見つかりません。');
+        setLoading(false);
+        return;
+      }
+      if (!event.userId || event.userId !== user.id) {
+        setAuthError('このイベントを編集する権限がありません。');
+        setLoading(false);
+        return;
+      }
+      setForm({
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        location: event.location,
+        prefecture: event.prefecture,
+        genre: event.genre,
+        category: event.category,
+        description: event.description,
+        capacity: String(event.capacity),
+        organizerName: event.organizerName,
+        organizerContact: event.organizerContact,
+      });
+      setImageBase64(event.imageBase64 ?? null);
+      setLoading(false);
+    }
+    load();
+  }, [id, router]);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -88,7 +112,7 @@ export default function NewEvent() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const event = await saveEvent({
+      await updateEvent(id, {
         title: form.title,
         date: form.date,
         time: form.time,
@@ -102,17 +126,36 @@ export default function NewEvent() {
         organizerContact: form.organizerContact,
         imageBase64: imageBase64 ?? undefined,
       });
-      router.push(`/events/${event.id}`);
+      router.push(`/events/${id}`);
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <p className="text-gray-400">読み込み中...</p>
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-4">
+        <p className="text-red-400 font-medium">{authError}</p>
+        <Link href={`/events/${id}`} className="text-gray-400 text-sm hover:text-white underline">
+          ← イベント詳細に戻る
+        </Link>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <header className="bg-gray-900 border-b border-gray-800 px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center gap-4">
-          <Link href="/" className="text-gray-400 hover:text-white text-sm">← イベント一覧</Link>
+          <Link href={`/events/${id}/manage`} className="text-gray-400 hover:text-white text-sm">← 管理画面</Link>
           <h1 className="text-xl font-bold">
             <span className="text-yellow-400">DANCE</span> EVENTS
           </h1>
@@ -120,7 +163,7 @@ export default function NewEvent() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-8">
-        <h2 className="text-2xl font-bold mb-6">イベントを登録する</h2>
+        <h2 className="text-2xl font-bold mb-6">イベントを編集する</h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
@@ -131,7 +174,6 @@ export default function NewEvent() {
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
-              placeholder="例: TOKYO CYPHER 2026"
             />
           </div>
 
@@ -141,7 +183,6 @@ export default function NewEvent() {
               <input
                 required
                 type="date"
-                min={new Date().toISOString().split('T')[0]}
                 value={form.date}
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
@@ -182,7 +223,6 @@ export default function NewEvent() {
                 value={form.location}
                 onChange={(e) => setForm({ ...form, location: e.target.value })}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
-                placeholder="例: 渋谷 WWW"
               />
             </div>
           </div>
@@ -232,13 +272,17 @@ export default function NewEvent() {
             <input
               required
               type="number"
-              min="1"
+              min={currentEntryCount > 0 ? currentEntryCount : 1}
               max="10000"
               value={form.capacity}
               onChange={(e) => setForm({ ...form, capacity: e.target.value })}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
-              placeholder="例: 32"
             />
+            {currentEntryCount > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                現在のエントリー数: {currentEntryCount}名（定員はこれ以上に設定してください）
+              </p>
+            )}
           </div>
 
           <div>
@@ -273,7 +317,6 @@ export default function NewEvent() {
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
               rows={4}
-              placeholder="イベントの詳細や注意事項など"
             />
             <p className="text-xs text-gray-600 mt-1 text-right">{form.description.length} / 2000</p>
           </div>
@@ -289,7 +332,6 @@ export default function NewEvent() {
                   value={form.organizerName}
                   onChange={(e) => setForm({ ...form, organizerName: e.target.value })}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
-                  placeholder="例: TOKYO CREW"
                 />
               </div>
               <div>
@@ -300,7 +342,6 @@ export default function NewEvent() {
                   value={form.organizerContact}
                   onChange={(e) => setForm({ ...form, organizerContact: e.target.value })}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
-                  placeholder="例: event@example.com"
                 />
               </div>
             </div>
@@ -311,7 +352,7 @@ export default function NewEvent() {
             disabled={form.genre.length === 0 || !form.category || submitting}
             className="w-full bg-yellow-400 text-gray-950 font-bold py-3 rounded-xl hover:bg-yellow-300 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {submitting ? '登録中...' : 'イベントを登録する'}
+            {submitting ? '保存中...' : '変更を保存する'}
           </button>
         </form>
       </main>

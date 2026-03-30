@@ -17,6 +17,7 @@ export interface Event {
   organizerContact: string;
   imageBase64?: string;
   createdAt: string;
+  userId?: string;
 }
 
 export interface Entry {
