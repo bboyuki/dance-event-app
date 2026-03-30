@@ -323,7 +323,7 @@ export default function EventDetail() {
                   <span className="text-gray-500 text-sm w-6">{i + 1}</span>
                   <div className="flex-1">
                     <p className="font-medium">{entry.name}</p>
-                    <p className="text-gray-400 text-xs">{entry.genre}{entry.instagramHandle && ` · ${entry.instagramHandle}`}</p>
+                    <p className="text-gray-400 text-xs">{entry.genre}</p>
                   </div>
                 </div>
               ))}
