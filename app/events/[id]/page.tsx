@@ -3,12 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Event, Entry } from '@/lib/types';
+import { Event, Entry, Genre } from '@/lib/types';
 import { getEvents, getEntries, saveEntry, deleteEntry } from '@/lib/store';
-import { supabase } from '@/lib/supabase';
-
-type Genre = 'Breaking' | 'Hip Hop' | 'Locking' | 'Popping' | 'House' | 'Waacking' | 'その他';
-const GENRES: Genre[] = ['Breaking', 'Hip Hop', 'Locking', 'Popping', 'House', 'Waacking', 'その他'];
+import { useAuth } from '@/lib/hooks/useAuth';
+import { GENRES, getToday } from '@/lib/constants';
 
 export default function EventDetail() {
   const { id } = useParams<{ id: string }>();
@@ -22,18 +20,11 @@ export default function EventDetail() {
   const [cancelling, setCancelling] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { userId: currentUserId, isAdmin } = useAuth();
 
   const storageKey = `entry_${id}`;
 
-  const [isAdmin, setIsAdmin] = useState(false);
-
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setCurrentUserId(user?.id ?? null);
-      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-      setIsAdmin(!!adminEmail && user?.email === adminEmail);
-    });
     // localStorage から自分のエントリー ID を復元
     const saved = localStorage.getItem(storageKey);
     if (saved) {
@@ -116,7 +107,7 @@ export default function EventDetail() {
     );
   }
 
-  const today = new Date().toLocaleDateString('sv-SE');
+  const today = getToday();
   const isPast = event.date < today;
   const isFull = entries.length >= event.capacity;
 
