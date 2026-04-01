@@ -24,13 +24,13 @@ export default function ManagePage() {
         router.replace(`/auth?redirectTo=/events/${id}/manage`);
         return;
       }
-      const [events, fetchedEntries] = await Promise.all([getEvents(), getEntries(id)]);
-      const foundEvent = events.find((e) => e.id === id) ?? null;
-
       const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
       const isAdmin = !!adminEmail && user.email === adminEmail;
 
-      // オーナーチェック: userId が null のレガシーイベントも含め、不一致は全て拒否
+      const [events, fetchedEntries] = await Promise.all([getEvents(), getEntries(id)]);
+      const foundEvent = events.find((e) => e.id === id) ?? null;
+
+      // プラットフォーム管理者はオーナーチェックをバイパス
       if (!isAdmin && (!foundEvent?.userId || foundEvent.userId !== user.id)) {
         setAuthError('このイベントの管理権限がありません。');
         setLoading(false);
@@ -212,6 +212,7 @@ export default function ManagePage() {
                 <th className="px-4 py-3 w-10">No</th>
                 <th className="px-4 py-3">名前</th>
                 <th className="px-4 py-3">ジャンル</th>
+                <th className="px-4 py-3">メールアドレス</th>
                 <th className="px-4 py-3">Instagram</th>
                 <th className="px-4 py-3 max-w-[180px]">コメント</th>
                 <th className="px-4 py-3">エントリー日時</th>
@@ -239,6 +240,7 @@ export default function ManagePage() {
                     <td className="px-4 py-3">
                       <span className="bg-gray-700 text-xs px-2 py-0.5 rounded">{entry.genre}</span>
                     </td>
+                    <td className="px-4 py-3 text-gray-400 text-xs">{entry.email}</td>
                     <td className="px-4 py-3 text-gray-400">{entry.instagramHandle || '—'}</td>
                     <td className="px-4 py-3 text-gray-400 max-w-[180px]">
                       {entry.comment ? (

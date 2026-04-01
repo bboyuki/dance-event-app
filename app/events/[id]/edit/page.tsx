@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { EventCategory } from '@/lib/types';
+import { Genre, EventCategory } from '@/lib/types';
 import { getEvents, getEntries, updateEvent } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { GENRES, CATEGORIES, PREFECTURES } from '@/lib/constants';
@@ -48,7 +48,9 @@ export default function EditEvent() {
         setLoading(false);
         return;
       }
-      if (!event.userId || event.userId !== user.id) {
+      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+      const isAdmin = !!adminEmail && user.email === adminEmail;
+      if (!isAdmin && (!event.userId || event.userId !== user.id)) {
         setAuthError('このイベントを編集する権限がありません。');
         setLoading(false);
         return;

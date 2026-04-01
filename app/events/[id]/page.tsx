@@ -200,12 +200,12 @@ export default function EventDetail() {
                   )}
                 </div>
               )}
-              {currentUserId && event.userId === currentUserId && (
+              {(currentUserId && event.userId === currentUserId || isAdmin) && (
                 <Link
                   href={`/events/${id}/manage`}
-                  className="border border-gray-600 text-gray-300 text-sm px-4 py-2 rounded-lg hover:border-gray-400 transition"
+                  className={`border text-sm px-4 py-2 rounded-lg transition ${isAdmin && event.userId !== currentUserId ? 'border-yellow-600 text-yellow-400 hover:border-yellow-400' : 'border-gray-600 text-gray-300 hover:border-gray-400'}`}
                 >
-                  主催者管理
+                  {isAdmin && event.userId !== currentUserId ? '管理者として管理' : '主催者管理'}
                 </Link>
               )}
             </div>
