@@ -4,20 +4,20 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Event } from '@/lib/types';
 import { getEvents } from '@/lib/store';
-import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { GENRES, CATEGORIES, getToday } from '@/lib/constants';
 
 export default function Home() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ prefecture: '', genre: '', category: '', period: '' });
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { userId: currentUserId } = useAuth();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setCurrentUserId(user?.id ?? null));
     getEvents().then(setEvents).finally(() => setLoading(false));
   }, []);
 
-  const today = new Date().toLocaleDateString('sv-SE');
+  const today = getToday();
   const weekLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('sv-SE');
   const monthEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
     .toLocaleDateString('sv-SE');
@@ -33,8 +33,6 @@ export default function Home() {
   });
 
   const prefectures = [...new Set(events.map((e) => e.prefecture))];
-  const genres = ['Breaking', 'Hip Hop', 'Locking', 'Popping', 'House', 'Waacking', 'その他'];
-  const categories = ['バトル', 'コンテスト', 'ワークショップ', 'その他'];
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -103,7 +101,7 @@ export default function Home() {
               className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">ジャンル：すべて</option>
-              {genres.map((g) => (
+              {GENRES.map((g) => (
                 <option key={g} value={g}>{g}</option>
               ))}
             </select>
@@ -113,7 +111,7 @@ export default function Home() {
               className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">カテゴリー：すべて</option>
-              {categories.map((c) => (
+              {CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>

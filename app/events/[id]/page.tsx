@@ -3,33 +3,28 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Event, Entry } from '@/lib/types';
+import { Event, Entry, Genre } from '@/lib/types';
 import { getEvents, getEntries, saveEntry, deleteEntry } from '@/lib/store';
-import { supabase } from '@/lib/supabase';
-
-type Genre = 'Breaking' | 'Hip Hop' | 'Locking' | 'Popping' | 'House' | 'Waacking' | 'その他';
-const GENRES: Genre[] = ['Breaking', 'Hip Hop', 'Locking', 'Popping', 'House', 'Waacking', 'その他'];
+import { useAuth } from '@/lib/hooks/useAuth';
+import { GENRES, getToday } from '@/lib/constants';
 
 export default function EventDetail() {
   const { id } = useParams<{ id: string }>();
   const [event, setEvent] = useState<Event | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', genre: '' as Genre, instagramHandle: '', comment: '' });
+  const [form, setForm] = useState({ name: '', genre: '' as Genre, email: '', instagramHandle: '', comment: '' });
   const [submitted, setSubmitted] = useState(false);
   const [confirmedEntry, setConfirmedEntry] = useState<{ name: string; genre: string } | null>(null);
   const [myEntryId, setMyEntryId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { userId: currentUserId, isAdmin } = useAuth();
 
   const storageKey = `entry_${id}`;
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setCurrentUserId(user?.id ?? null);
-    });
     // localStorage から自分のエントリー ID を復元
     const saved = localStorage.getItem(storageKey);
     if (saved) {
@@ -56,6 +51,7 @@ export default function EventDetail() {
         eventId: id,
         name: form.name,
         genre: form.genre,
+        email: form.email,
         instagramHandle: form.instagramHandle,
         comment: form.comment,
       });
@@ -66,7 +62,7 @@ export default function EventDetail() {
       setEntries(await getEntries(id));
       setSubmitted(true);
       setShowForm(false);
-      setForm({ name: '', genre: '' as Genre, instagramHandle: '', comment: '' });
+      setForm({ name: '', genre: '' as Genre, email: '', instagramHandle: '', comment: '' });
     } finally {
       setSubmitting(false);
     }
@@ -111,7 +107,7 @@ export default function EventDetail() {
     );
   }
 
-  const today = new Date().toLocaleDateString('sv-SE');
+  const today = getToday();
   const isPast = event.date < today;
   const isFull = entries.length >= event.capacity;
 
@@ -265,6 +261,19 @@ export default function EventDetail() {
                 </select>
               </div>
               <div>
+                <label className="block text-sm text-gray-400 mb-1">メールアドレス *</label>
+                <input
+                  required
+                  type="email"
+                  maxLength={254}
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-400"
+                  placeholder="you@example.com"
+                />
+                <p className="text-gray-600 text-xs mt-1">主催者からの連絡に使用します。公開はされません。</p>
+              </div>
+              <div>
                 <label className="block text-sm text-gray-400 mb-1">Instagram ID</label>
                 <input
                   maxLength={30}
@@ -273,7 +282,7 @@ export default function EventDetail() {
                   value={form.instagramHandle}
                   onChange={(e) => setForm({ ...form, instagramHandle: e.target.value })}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-400"
-                  placeholder="@username"
+                  placeholder="@username（任意）"
                 />
               </div>
               <div>
@@ -309,7 +318,7 @@ export default function EventDetail() {
                   <span className="text-gray-500 text-sm w-6">{i + 1}</span>
                   <div className="flex-1">
                     <p className="font-medium">{entry.name}</p>
-                    <p className="text-gray-400 text-xs">{entry.genre}{entry.instagramHandle && ` · ${entry.instagramHandle}`}</p>
+                    <p className="text-gray-400 text-xs">{entry.genre}</p>
                   </div>
                 </div>
               ))}

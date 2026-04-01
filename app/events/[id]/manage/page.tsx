@@ -27,8 +27,11 @@ export default function ManagePage() {
       const [events, fetchedEntries] = await Promise.all([getEvents(), getEntries(id)]);
       const foundEvent = events.find((e) => e.id === id) ?? null;
 
+      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+      const isAdmin = !!adminEmail && user.email === adminEmail;
+
       // オーナーチェック: userId が null のレガシーイベントも含め、不一致は全て拒否
-      if (!foundEvent?.userId || foundEvent.userId !== user.id) {
+      if (!isAdmin && (!foundEvent?.userId || foundEvent.userId !== user.id)) {
         setAuthError('このイベントの管理権限がありません。');
         setLoading(false);
         return;
@@ -63,11 +66,12 @@ export default function ManagePage() {
   }
 
   function handleExportCSV() {
-    const header = ['No', '名前', 'ジャンル', 'Instagram', 'コメント', 'エントリー日時'];
+    const header = ['No', '名前', 'ジャンル', 'メールアドレス', 'Instagram', 'コメント', 'エントリー日時'];
     const rows = entries.map((e, i) => [
       i + 1,
       e.name,
       e.genre,
+      e.email,
       e.instagramHandle,
       e.comment,
       new Date(e.createdAt).toLocaleString('ja-JP'),
